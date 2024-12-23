@@ -7,3 +7,5 @@ use php.
 
 here us also we can select the car.
 hello.
+
+this is a car rental site just on testing phase.
