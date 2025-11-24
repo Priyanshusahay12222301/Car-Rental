@@ -1,0 +1,17 @@
+{
+  "name": "car-rental-app",
+  "version": "1.0.0",
+  "description": "Car Rental Platform with PHP and MySQL",
+  "main": "index.php",
+  "scripts": {
+    "dev": "vercel dev",
+    "deploy": "vercel",
+    "deploy:prod": "vercel --prod"
+  },
+  "keywords": ["car", "rental", "php", "mysql", "vercel"],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "vercel": "^32.0.0"
+  }
+}

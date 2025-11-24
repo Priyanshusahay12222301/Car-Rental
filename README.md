@@ -1,0 +1,11 @@
+# Car-Rental
+this is a car rental platform .
+here we have two unique thing payment gateway and a carbot.
+
+THIS IS A ALSO HAVING THE DATABASES. 
+use php.
+
+here us also we can select the car.
+hello.
+
+this is a car rental site just on testing phase.

@@ -1,0 +1,34 @@
+# Vercel
+.vercel
+
+# Environment variables
+.env
+.env.local
+.env.production
+
+# Node modules
+node_modules/
+
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# Database backups
+*.sql.backup
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# PHP
+*.tmp
+.htaccess
+
+# Uploads (if using local storage)
+uploads/
+temp/
