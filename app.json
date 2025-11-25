@@ -1,0 +1,29 @@
+{
+  "name": "Car Rental System",
+  "description": "A PHP-based car rental management system with admin panel and user portal",
+  "keywords": ["php", "mysql", "car", "rental", "booking", "management"],
+  "website": "https://github.com/Priyanshusahay12222301/Car-Rental",
+  "repository": "https://github.com/Priyanshusahay12222301/Car-Rental",
+  "logo": "https://raw.githubusercontent.com/Priyanshusahay12222301/Car-Rental/master/assets/images/logo2.png",
+  "success_url": "/",
+  "scripts": {
+    "postdeploy": "echo 'Please import sqlfile/carrental.sql to your database'"
+  },
+  "env": {
+    "APP_ENV": {
+      "description": "Application environment",
+      "value": "production"
+    }
+  },
+  "addons": [
+    {
+      "plan": "heroku-postgresql:mini",
+      "as": "DATABASE"
+    }
+  ],
+  "buildpacks": [
+    {
+      "url": "heroku/php"
+    }
+  ]
+}
