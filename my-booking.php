@@ -84,7 +84,7 @@ else{
 
 <?php
 $useremail=$_SESSION['login'];
-$sql = "SELECT * from tblusers where EmailId=:useremail";
+$sql = "SELECT * from tblusers where emailid=:useremail";
 $query = $dbh -> prepare($sql);
 $query -> bindParam(':useremail',$useremail, PDO::PARAM_STR);
 $query->execute();
@@ -101,9 +101,9 @@ foreach($results as $result)
       </div>
 
       <div class="dealer_info">
-        <h5><?php echo "Welcome " ,  htmlentities($result->FullName);?></h5>
+        <h5><?php echo "Welcome " ,  htmlentities($result->fullname);?></h5>
         <p>
-          <?php echo htmlentities($result->Country); }}?></p>
+          <?php echo htmlentities($result->country); }}?></p>
       </div>
     </div>
     <div class="row">
@@ -119,7 +119,7 @@ foreach($results as $result)
            
 <?php
 $useremail=$_SESSION['login'];
-$sql = "SELECT tblvehicles.Vimage1 as Vimage1,tblvehicles.VehiclesTitle,tblvehicles.id as vid,tblbrands.BrandName,tblbooking.FromDate,tblbooking.ToDate,tblbooking.message,tblbooking.Status,tblvehicles.PricePerDay from tblbooking join tblvehicles on tblbooking.VehicleId=tblvehicles.id join tblbrands on tblbrands.id=tblvehicles.VehiclesBrand where tblbooking.userEmail=:useremail";
+$sql = "SELECT tblvehicles.vimage1 as vimage1,tblvehicles.vehiclestitle,tblvehicles.id as vid,tblbrands.brandname,tblbooking.fromdate,tblbooking.todate,tblbooking.message,tblbooking.status,tblvehicles.priceperday from tblbooking join tblvehicles on tblbooking.vehicleid=tblvehicles.id join tblbrands on tblbrands.id=tblvehicles.vehiclesbrand where tblbooking.useremail=:useremail";
 $query = $dbh -> prepare($sql);
 $query-> bindParam(':useremail', $useremail, PDO::PARAM_STR);
 $query->execute();
@@ -129,20 +129,19 @@ if($query->rowCount() > 0)
 {
 foreach($results as $result)
 {  ?>
-
-<li>
-                <div class="vehicle_img"> <a href="vehical-details.php?vhid=<?php echo htmlentities($result->vid);?>""><img src="admin/img/vehicleimages/<?php echo htmlentities($result->Vimage1);?>" alt="image"></a> </div>
+              <li>
+                <div class="vehicle_img"> <a href="vehical-details.php?vhid=<?php echo htmlentities($result->vid);?>""><img src="admin/img/vehicleimages/<?php echo htmlentities($result->vimage1);?>" alt="image"></a> </div>
                 <div class="vehicle_title">
-                  <h6><a href="vehical-details.php?vhid=<?php echo htmlentities($result->vid);?>""> <?php echo htmlentities($result->BrandName);?> , <?php echo htmlentities($result->VehiclesTitle);?></a></h6>
-                  <p><b>From Date:</b> <?php echo htmlentities($result->FromDate);?><br /> <b>To Date:</b> <?php echo htmlentities($result->ToDate);?></p>
+                  <h6><a href="vehical-details.php?vhid=<?php echo htmlentities($result->vid);?>""> <?php echo htmlentities($result->brandname);?> , <?php echo htmlentities($result->vehiclestitle);?></a></h6>
+                  <p><b>From Date:</b> <?php echo htmlentities($result->fromdate);?><br /> <b>To Date:</b> <?php echo htmlentities($result->todate);?></p>
                 </div>
-                <?php if($result->Status==1)
+                <?php if($result->status==1)
                 { ?>
                 <div class="vehicle_status"> <a href="#" class="btn outline btn-xs active-btn">Confirmed</a>
                            <div class="clearfix"></div>
         </div>
 
-              <?php } else if($result->Status==2) { ?>
+              <?php } else if($result->status==2) { ?>
  <div class="vehicle_status"> <a href="#" class="btn outline btn-xs">Cancelled</a>
             <div class="clearfix"></div>
         </div>
@@ -160,7 +159,7 @@ foreach($results as $result)
 
       <!-- Dynamically set the car price -->
       <form action="payment.php" method="POST">
-        <input type="hidden" name="amount" value="<?php echo htmlentities($result->PricePerDay); ?>"> 
+        <input type="hidden" name="amount" value="<?php echo htmlentities($result->priceperday); ?>"> 
         <button type="submit" class="btn btn-success" >Pay Now</button>
       </form>
         
