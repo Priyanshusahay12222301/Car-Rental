@@ -23,6 +23,10 @@ services:
         fromDatabase:
           name: carrental-db
           property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: carrental-db
+          property: port
       - key: DB_USER
         fromDatabase:
           name: carrental-db

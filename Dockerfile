@@ -1,8 +1,9 @@
 # ── Stage: Production image ────────────────────────────────────────────────────
 FROM php:8.1-apache
 
-# Install PDO MySQL extension and other useful extensions
+# Install PDO PostgreSQL extension and other useful extensions
 RUN apt-get update && apt-get install -y \
+        libpq-dev \
         libpng-dev \
         libjpeg-dev \
         libfreetype6-dev \
@@ -11,10 +12,11 @@ RUN apt-get update && apt-get install -y \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install \
         pdo \
-        pdo_mysql \
+        pdo_pgsql \
         gd \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
+
 
 # Enable Apache mod_rewrite
 RUN a2enmod rewrite
