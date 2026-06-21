@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  # ── PHP + Apache Application ────────────────────────────────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: carrental_app
+    ports:
+      - "8080:80"
+    environment:
+      DB_HOST: db
+      DB_USER: carrental_user
+      DB_PASS: carrental_pass
+      DB_NAME: carrental
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    volumes:
+      # Persist uploaded images across restarts
+      - app_assets:/var/www/html/assets
+
+  # ── MySQL Database ───────────────────────────────────────────────────────────
+  db:
+    image: mysql:8.0
+    container_name: carrental_db
+    environment:
+      MYSQL_ROOT_PASSWORD: root_secret_pass
+      MYSQL_DATABASE: carrental
+      MYSQL_USER: carrental_user
+      MYSQL_PASSWORD: carrental_pass
+    ports:
+      - "3306:3306"
+    volumes:
+      # Auto-import the SQL schema on first start
+      - ./sqlfile/carrental.sql:/docker-entrypoint-initdb.d/carrental.sql
+      # Persist database data
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "carrental_user", "--password=carrental_pass"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
+volumes:
+  db_data:
+  app_assets:

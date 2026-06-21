@@ -1,0 +1,10 @@
+# .dockerignore — keeps the image lean by excluding dev/local-only files
+.git
+.gitignore
+.cph
+*.md
+docker-compose.yml
+render.yaml
+*.log
+*.tmp
+node_modules

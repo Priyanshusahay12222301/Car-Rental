@@ -1,0 +1,7 @@
+# .gitignore for the Car Rental PHP app
+*.log
+*.tmp
+*.env
+.env.local
+.DS_Store
+Thumbs.db

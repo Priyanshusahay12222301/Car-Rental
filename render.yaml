@@ -1,0 +1,43 @@
+# render.yaml — Render Infrastructure as Code
+# Docs: https://render.com/docs/render-yaml-preview
+#
+# This defines:
+#   1. A Docker web service (PHP + Apache)
+#   2. A managed MySQL database
+#
+# Deploy: connect your GitHub repo on render.com and Render
+# will auto-detect this file and provision everything.
+
+services:
+  - type: web
+    name: carrental-app
+    env: docker                    # Use our Dockerfile
+    plan: free                     # Free tier
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /             # Render pings this to confirm healthy
+    autoDeploy: true               # Re-deploy on every git push
+
+    envVars:
+      # These are wired automatically from the database below
+      - key: DB_HOST
+        fromDatabase:
+          name: carrental-db
+          property: host
+      - key: DB_USER
+        fromDatabase:
+          name: carrental-db
+          property: user
+      - key: DB_PASS
+        fromDatabase:
+          name: carrental-db
+          property: password
+      - key: DB_NAME
+        fromDatabase:
+          name: carrental-db
+          property: database
+
+databases:
+  - name: carrental-db
+    plan: free                     # Free tier (90-day trial, then paid)
+    databaseName: carrental
+    ipAllowList: []                # Allow all (Render internal traffic only)
