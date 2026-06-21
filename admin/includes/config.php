@@ -21,4 +21,7 @@ try {
 } catch (PDOException $e) {
     exit("Database connection error: " . $e->getMessage());
 }
+
+// Auto-initialise schema if tables are missing or have wrong column names
+require_once __DIR__ . '/db_init.php';
 ?>
