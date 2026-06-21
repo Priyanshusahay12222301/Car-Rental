@@ -3,7 +3,7 @@
 #
 # This defines:
 #   1. A Docker web service (PHP + Apache)
-#   2. A managed MySQL database
+#   2. A managed PostgreSQL database
 #
 # Deploy: connect your GitHub repo on render.com and Render
 # will auto-detect this file and provision everything.
@@ -16,6 +16,7 @@ services:
     dockerfilePath: ./Dockerfile
     healthCheckPath: /             # Render pings this to confirm healthy
     autoDeploy: true               # Re-deploy on every git push
+    preDeployCommand: psql $DATABASE_URL -f /var/www/html/sqlfile/carrental_pg.sql
 
     envVars:
       # These are wired automatically from the database below
@@ -39,6 +40,10 @@ services:
         fromDatabase:
           name: carrental-db
           property: database
+      - key: DATABASE_URL
+        fromDatabase:
+          name: carrental-db
+          property: connectionString
 
 databases:
   - name: carrental-db

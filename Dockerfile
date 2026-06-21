@@ -1,9 +1,10 @@
 # ── Stage: Production image ────────────────────────────────────────────────────
 FROM php:8.1-apache
 
-# Install PDO PostgreSQL extension and other useful extensions
+# Install PDO PostgreSQL extension, psql client, and other useful extensions
 RUN apt-get update && apt-get install -y \
         libpq-dev \
+        postgresql-client \
         libpng-dev \
         libjpeg-dev \
         libfreetype6-dev \
