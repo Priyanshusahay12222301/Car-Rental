@@ -42,7 +42,7 @@ function db_init_schema(PDO $dbh): void
             updationdate TIMESTAMP DEFAULT NULL
         )");
         $dbh->exec("INSERT INTO admin (id,username,password,updationdate) VALUES
-            (1,'admin','5c428d8875d2948607f3e3fe134d71b4','2017-06-18 12:22:38')");
+            (1,'admin','0192023a7bbd73250516f069df18b500','2017-06-18 12:22:38')");
         $dbh->exec("SELECT setval(pg_get_serial_sequence('admin','id'), MAX(id)) FROM admin");
 
         // tblusers
@@ -215,3 +215,11 @@ function db_init_schema(PDO $dbh): void
 }
 
 db_init_schema($dbh);
+
+// Always ensure admin credentials are correct (fixes live DB without schema reset)
+try {
+    $dbh->exec("UPDATE admin SET username='admin', password='0192023a7bbd73250516f069df18b500' WHERE id=1");
+} catch (Exception $e) {
+    // Silently ignore — table may not exist yet (handled by db_init_schema above)
+}
+?>
