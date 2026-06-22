@@ -5,3 +5,6 @@
 .env.local
 .DS_Store
 Thumbs.db
+
+# 🔑 Secret API keys — never push these to GitHub
+includes/api_keys.php
