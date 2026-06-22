@@ -3,61 +3,10 @@ session_start();
 error_reporting(0);
 include('includes/config.php');
 
-// Initialize chat history in session
+// Initialize chat history
 if (!isset($_SESSION['chatHistory'])) {
     $_SESSION['chatHistory'] = [];
 }
-
-// Function to create a chat session
-function createChatSession($apiKey, $externalUserId) {
-    $url = 'https://api.on-demand.io/chat/v1/sessions';
-    $headers = [
-        'Content-Type: application/json',
-        'apikey: ' . $apiKey
-    ];
-    $body = json_encode([
-        'pluginIds' => [],
-        'externalUserId' => $externalUserId
-    ]);
-    $ch = curl_init($url);
-    curl_setopt($ch, CURLOPT_POST, true);
-    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 15);
-    $response = curl_exec($ch);
-    curl_close($ch);
-    return json_decode($response, true);
-}
-
-// Function to submit a query
-function submitQuery($apiKey, $sessionId, $query) {
-    $url = 'https://api.on-demand.io/chat/v1/sessions/' . $sessionId . '/query';
-    $headers = [
-        'Content-Type: application/json',
-        'apikey: ' . $apiKey
-    ];
-    $body = json_encode([
-        'endpointId' => 'predefined-openai-gpt4o',
-        'query' => $query,
-        'pluginIds' => ['plugin-1712327325', 'plugin-1713962163', 'plugin-1730058905'],
-        'responseMode' => 'sync'
-    ]);
-    $ch = curl_init($url);
-    curl_setopt($ch, CURLOPT_POST, true);
-    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 30);
-    $response = curl_exec($ch);
-    curl_close($ch);
-    return json_decode($response, true);
-}
-
-$apiKey = 'NSlWKonOLdreYgztQWOY1xJC1FSSY91f';
-$externalUserId = 'guest_' . session_id();
-$responseMessage = '';
-$errorMessage = '';
 
 // Clear chat
 if (isset($_POST['clear_chat'])) {
@@ -66,29 +15,251 @@ if (isset($_POST['clear_chat'])) {
     exit;
 }
 
-// Handle message submit
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['query'])) {
-    $query = htmlspecialchars(trim($_POST['query']));
+// ─── Smart Car Bot Logic ───────────────────────────────────────────────
+function getBotResponse($query, $dbh) {
+    $q = strtolower(trim($query));
 
-    // Create session
-    $sessionResponse = createChatSession($apiKey, $externalUserId);
-
-    if (isset($sessionResponse['data']['id'])) {
-        $sessionId = $sessionResponse['data']['id'];
-        $queryResponse = submitQuery($apiKey, $sessionId, $query);
-
-        if (isset($queryResponse['data']['answer'])) {
-            $responseMessage = $queryResponse['data']['answer'];
-            $_SESSION['chatHistory'][] = ['user' => $query, 'bot' => $responseMessage];
-        } else {
-            $errorMessage = 'Bot error: ' . (isset($queryResponse['message']) ? $queryResponse['message'] : 'Unknown error');
-            $_SESSION['chatHistory'][] = ['user' => $query, 'bot' => '⚠️ Sorry, I could not get a response. Please try again.'];
-        }
-    } else {
-        $_SESSION['chatHistory'][] = ['user' => $query, 'bot' => '⚠️ Could not connect to AI service. Please try again later.'];
+    // ── Greetings ──
+    if (preg_match('/\b(hi|hello|hey|good morning|good evening|namaste|hola)\b/', $q)) {
+        return "👋 Hello! Welcome to **Rent Wheels CarBot**! I can help you with:\n• 🚗 Finding the right car\n• 💰 Pricing & availability\n• ⛽ Fuel type comparisons\n• 📅 How to book a car\n\nWhat would you like to know?";
     }
 
-    // Redirect to avoid form resubmission
+    // ── Thanks ──
+    if (preg_match('/\b(thanks|thank you|thankyou|ty|great|awesome|perfect)\b/', $q)) {
+        return "😊 You're welcome! Happy to help. Anything else you'd like to know about our cars or rentals?";
+    }
+
+    // ── Goodbye ──
+    if (preg_match('/\b(bye|goodbye|see you|exit|quit)\b/', $q)) {
+        return "👋 Goodbye! Have a great journey! Come back anytime to rent a car with Rent Wheels. 🚗";
+    }
+
+    // ── List all cars ──
+    if (preg_match('/\b(all cars|show cars|list cars|available cars|what cars|which cars|cars available|show me cars)\b/', $q)) {
+        try {
+            $sql = "SELECT tblvehicles.vehiclestitle, tblbrands.brandname, tblvehicles.priceperday, tblvehicles.fueltype, tblvehicles.modelyear, tblvehicles.seatingcapacity FROM tblvehicles JOIN tblbrands ON tblbrands.id = tblvehicles.vehiclesbrand ORDER BY tblvehicles.priceperday ASC";
+            $res = $dbh->query($sql)->fetchAll(PDO::FETCH_OBJ);
+            if ($res) {
+                $reply = "🚗 **Available Cars at Rent Wheels:**\n\n";
+                foreach ($res as $car) {
+                    $reply .= "• **{$car->brandname} {$car->vehiclestitle}** — ₹{$car->priceperday}/day | {$car->fueltype} | {$car->seatingcapacity} seats | {$car->modelyear}\n";
+                }
+                $reply .= "\nVisit our [Car Listing](car-listing.php) to book!";
+                return $reply;
+            }
+        } catch(Exception $e) {}
+        return "Sorry, I couldn't fetch car data right now. Please visit our [Car Listing](car-listing.php) page!";
+    }
+
+    // ── Cheapest / Budget cars ──
+    if (preg_match('/\b(cheap|budget|affordable|lowest|cheapest|price|economical|under)\b/', $q)) {
+        try {
+            $sql = "SELECT tblvehicles.vehiclestitle, tblbrands.brandname, tblvehicles.priceperday, tblvehicles.fueltype FROM tblvehicles JOIN tblbrands ON tblbrands.id = tblvehicles.vehiclesbrand ORDER BY tblvehicles.priceperday ASC LIMIT 3";
+            $res = $dbh->query($sql)->fetchAll(PDO::FETCH_OBJ);
+            if ($res) {
+                $reply = "💰 **Most Affordable Cars:**\n\n";
+                foreach ($res as $car) {
+                    $reply .= "• **{$car->brandname} {$car->vehiclestitle}** — ₹{$car->priceperday}/day ({$car->fueltype})\n";
+                }
+                $reply .= "\nThese are our best value options!";
+                return $reply;
+            }
+        } catch(Exception $e) {}
+        return "💰 We have cars starting from ₹1200/day! Visit our [Car Listing](car-listing.php) to see all prices.";
+    }
+
+    // ── Most expensive / luxury / premium ──
+    if (preg_match('/\b(luxury|premium|expensive|best|top|audi|bmw|high end|expensive)\b/', $q)) {
+        try {
+            $sql = "SELECT tblvehicles.vehiclestitle, tblbrands.brandname, tblvehicles.priceperday, tblvehicles.fueltype FROM tblvehicles JOIN tblbrands ON tblbrands.id = tblvehicles.vehiclesbrand ORDER BY tblvehicles.priceperday DESC LIMIT 3";
+            $res = $dbh->query($sql)->fetchAll(PDO::FETCH_OBJ);
+            if ($res) {
+                $reply = "✨ **Premium / Luxury Cars:**\n\n";
+                foreach ($res as $car) {
+                    $reply .= "• **{$car->brandname} {$car->vehiclestitle}** — ₹{$car->priceperday}/day ({$car->fueltype})\n";
+                }
+                return $reply;
+            }
+        } catch(Exception $e) {}
+        return "✨ We have premium cars including BMW and Audi! Check our [Car Listing](car-listing.php).";
+    }
+
+    // ── SUV ──
+    if (preg_match('/\b(suv|crossover|tucson|rav4|seltos|cr-v|crv)\b/', $q)) {
+        try {
+            $sql = "SELECT tblvehicles.vehiclestitle, tblbrands.brandname, tblvehicles.priceperday, tblvehicles.fueltype, tblvehicles.seatingcapacity FROM tblvehicles JOIN tblbrands ON tblbrands.id = tblvehicles.vehiclesbrand WHERE LOWER(tblvehicles.vehiclestitle) LIKE '%tucson%' OR LOWER(tblvehicles.vehiclestitle) LIKE '%rav4%' OR LOWER(tblvehicles.vehiclestitle) LIKE '%seltos%' OR LOWER(tblvehicles.vehiclestitle) LIKE '%cr-v%' OR LOWER(tblvehicles.vehiclestitle) LIKE '%crv%' OR LOWER(tblvehicles.vehiclestitle) LIKE '%x1%'";
+            $res = $dbh->query($sql)->fetchAll(PDO::FETCH_OBJ);
+            if ($res && count($res) > 0) {
+                $reply = "🚙 **Available SUVs:**\n\n";
+                foreach ($res as $car) {
+                    $reply .= "• **{$car->brandname} {$car->vehiclestitle}** — ₹{$car->priceperday}/day | {$car->seatingcapacity} seats\n";
+                }
+                $reply .= "\nSUVs are great for family trips and rough roads!";
+                return $reply;
+            }
+        } catch(Exception $e) {}
+        return "🚙 **Why choose an SUV?**\n• Higher ground clearance for rough roads\n• More boot space\n• Great for families (5-7 seats)\n• Better visibility\n\nCheck our available SUVs on the [Car Listing](car-listing.php) page!";
+    }
+
+    // ── Petrol cars ──
+    if (preg_match('/\b(petrol|gasoline)\b/', $q)) {
+        try {
+            $sql = "SELECT tblvehicles.vehiclestitle, tblbrands.brandname, tblvehicles.priceperday FROM tblvehicles JOIN tblbrands ON tblbrands.id = tblvehicles.vehiclesbrand WHERE LOWER(tblvehicles.fueltype) = 'petrol' ORDER BY priceperday ASC";
+            $res = $dbh->query($sql)->fetchAll(PDO::FETCH_OBJ);
+            if ($res) {
+                $reply = "⛽ **Available Petrol Cars:**\n\n";
+                foreach ($res as $car) {
+                    $reply .= "• **{$car->brandname} {$car->vehiclestitle}** — ₹{$car->priceperday}/day\n";
+                }
+                return $reply;
+            }
+        } catch(Exception $e) {}
+        return "⛽ Petrol cars are widely available and easy to refuel anywhere. Check our [Car Listing](car-listing.php)!";
+    }
+
+    // ── CNG cars ──
+    if (preg_match('/\b(cng|compressed natural gas)\b/', $q)) {
+        try {
+            $sql = "SELECT tblvehicles.vehiclestitle, tblbrands.brandname, tblvehicles.priceperday FROM tblvehicles JOIN tblbrands ON tblbrands.id = tblvehicles.vehiclesbrand WHERE LOWER(tblvehicles.fueltype) = 'cng'";
+            $res = $dbh->query($sql)->fetchAll(PDO::FETCH_OBJ);
+            if ($res && count($res) > 0) {
+                $reply = "🌿 **Available CNG Cars (Eco-Friendly & Cheaper to Run):**\n\n";
+                foreach ($res as $car) {
+                    $reply .= "• **{$car->brandname} {$car->vehiclestitle}** — ₹{$car->priceperday}/day\n";
+                }
+                $reply .= "\n✅ CNG is ~40% cheaper than petrol per km!";
+                return $reply;
+            }
+        } catch(Exception $e) {}
+        return "🌿 **CNG Cars Benefits:**\n• ~40% cheaper than petrol\n• Eco-friendly (lower emissions)\n• Great for city driving\n\nCheck our [Car Listing](car-listing.php) for CNG options!";
+    }
+
+    // ── Fuel type comparison ──
+    if (preg_match('/\b(petrol vs cng|cng vs petrol|difference.*fuel|fuel type|which fuel)\b/', $q)) {
+        return "⛽ **Petrol vs CNG Comparison:**\n\n🔵 **Petrol:**\n• Available everywhere\n• Better performance\n• Higher running cost\n• Good for highways\n\n🟢 **CNG:**\n• ~40% cheaper per km\n• Eco-friendly\n• Best for city drives\n• Fewer refuelling stations\n\n**Recommendation:** Choose CNG for daily city commute, Petrol for long highway trips!";
+    }
+
+    // ── How to book ──
+    if (preg_match('/\b(how to book|booking process|how do i rent|how to rent|steps to book|make.*booking|create.*booking)\b/', $q)) {
+        return "📅 **How to Book a Car at Rent Wheels:**\n\n1️⃣ Go to [Car Listing](car-listing.php) and browse cars\n2️⃣ Click **\"View Details\"** on any car\n3️⃣ Select your **From Date** and **To Date**\n4️⃣ Add a message (optional)\n5️⃣ Click **\"Book Now\"**\n6️⃣ Wait for admin confirmation ✅\n\n💡 **Tip:** You need to be logged in to make a booking. [Register here](register.php)!";
+    }
+
+    // ── Price / cost ──
+    if (preg_match('/\b(price|cost|rate|charge|fee|per day|daily rate|how much)\b/', $q)) {
+        try {
+            $min = $dbh->query("SELECT MIN(priceperday) FROM tblvehicles")->fetchColumn();
+            $max = $dbh->query("SELECT MAX(priceperday) FROM tblvehicles")->fetchColumn();
+            return "💰 **Pricing at Rent Wheels:**\n\n• Starting from: **₹{$min}/day**\n• Up to: **₹{$max}/day** (luxury cars)\n\n📋 Pricing depends on car model, fuel type, and year.\n\n👉 View all prices at [Car Listing](car-listing.php)";
+        } catch(Exception $e) {}
+        return "💰 Our cars start from ₹1200/day. Visit [Car Listing](car-listing.php) to see all prices!";
+    }
+
+    // ── Family car / seats ──
+    if (preg_match('/\b(family|kids|children|group|5 seat|7 seat|spacious|large)\b/', $q)) {
+        try {
+            $sql = "SELECT tblvehicles.vehiclestitle, tblbrands.brandname, tblvehicles.priceperday, tblvehicles.seatingcapacity FROM tblvehicles JOIN tblbrands ON tblbrands.id = tblvehicles.vehiclesbrand WHERE tblvehicles.seatingcapacity >= 5 ORDER BY seatingcapacity DESC, priceperday ASC LIMIT 4";
+            $res = $dbh->query($sql)->fetchAll(PDO::FETCH_OBJ);
+            if ($res) {
+                $reply = "👨‍👩‍👧‍👦 **Best Family Cars (5+ seats):**\n\n";
+                foreach ($res as $car) {
+                    $reply .= "• **{$car->brandname} {$car->vehiclestitle}** — ₹{$car->priceperday}/day | {$car->seatingcapacity} seats\n";
+                }
+                return $reply;
+            }
+        } catch(Exception $e) {}
+        return "👨‍👩‍👧‍👦 For families, we recommend SUVs with 5+ seats. Check [Car Listing](car-listing.php)!";
+    }
+
+    // ── Road trip ──
+    if (preg_match('/\b(road trip|highway|long drive|trip|travel|tour)\b/', $q)) {
+        return "🛣️ **Best Cars for Road Trips:**\n\n• **SUVs** — Best comfort & boot space (Hyundai Tucson, Toyota RAV4)\n• **Sedans** — Fuel efficient on highways (Nissan Versa)\n• **Petrol** — Best for long highway drives\n\n**Tips for road trips:**\n✅ Check AC & power windows\n✅ Choose petrol for highways\n✅ Pick cars with 4+ seats for comfort\n\nBook your road trip car at [Car Listing](car-listing.php)!";
+    }
+
+    // ── Car not starting / trouble ──
+    if (preg_match('/\b(car not starting|won\'t start|won\'t start|engine.*problem|battery dead|breakdown|trouble|help.*car)\b/', $q)) {
+        return "🆘 **Car Trouble? Here's what to do:**\n\n🔋 **Car won't start:**\n• Check if battery is dead (jump start needed)\n• Check fuel level\n• Try neutral gear, then restart\n\n🚗 **If you rented from us:**\n• Call our support immediately\n• Don't attempt repairs yourself\n• We'll arrange a replacement car\n\n📞 **Contact us:** Visit our [Contact Page](contact-us.php) for immediate support!";
+    }
+
+    // ── AC / features ──
+    if (preg_match('/\b(ac|air condition|features|amenities|comfort|power windows|airbag)\b/', $q)) {
+        return "❄️ **Car Features Available at Rent Wheels:**\n\n✅ Air Conditioning (AC)\n✅ Power Windows\n✅ Power Steering\n✅ Driver & Passenger Airbags\n✅ Anti-lock Braking System (ABS)\n✅ Central Locking\n✅ Crash Sensor\n✅ Leather Seats (selected cars)\n\nAll features shown on each car's detail page. Visit [Car Listing](car-listing.php)!";
+    }
+
+    // ── Registration / login ──
+    if (preg_match('/\b(register|sign up|signup|create account|login|log in|signin)\b/', $q)) {
+        return "👤 **Account at Rent Wheels:**\n\n**To Register:**\n→ Click [Register](register.php) and fill in your details\n\n**To Login:**\n→ Click [Login](login.php) with your email & password\n\n**Why register?**\n✅ Book cars\n✅ View your bookings\n✅ Post testimonials\n✅ Manage your profile";
+    }
+
+    // ── My bookings ──
+    if (preg_match('/\b(my booking|booking status|check booking|booking history)\b/', $q)) {
+        return "📋 **Check Your Bookings:**\n\n→ Login to your account\n→ Click **\"My Bookings\"** in the menu\n\nYou'll see:\n• Booking status (Pending / Confirmed / Cancelled)\n• Vehicle details\n• Dates booked\n• Pay button for confirmed bookings\n\n[View My Bookings](my-booking.php)";
+    }
+
+    // ── Contact ──
+    if (preg_match('/\b(contact|phone|email|address|reach|support|help)\b/', $q)) {
+        return "📞 **Contact Rent Wheels:**\n\n→ Visit our [Contact Us](contact-us.php) page\n→ Fill in your query and we'll get back to you\n\nOur team is available to help with:\n• Booking issues\n• Car breakdowns\n• Payment queries\n• General enquiries";
+    }
+
+    // ── Honda ──
+    if (preg_match('/\bhonda\b/', $q)) {
+        return getBrandInfo($dbh, 'Honda');
+    }
+    // ── BMW ──
+    if (preg_match('/\bbmw\b/', $q)) {
+        return getBrandInfo($dbh, 'BMW');
+    }
+    // ── Audi ──
+    if (preg_match('/\baudi\b/', $q)) {
+        return getBrandInfo($dbh, 'Audi');
+    }
+    // ── Toyota ──
+    if (preg_match('/\btoyota\b/', $q)) {
+        return getBrandInfo($dbh, 'Toyota');
+    }
+    // ── Hyundai ──
+    if (preg_match('/\bhyundai\b/', $q)) {
+        return getBrandInfo($dbh, 'Hyundai');
+    }
+    // ── Kia ──
+    if (preg_match('/\bkia\b/', $q)) {
+        return getBrandInfo($dbh, 'Kia');
+    }
+    // ── Nissan ──
+    if (preg_match('/\bnissan\b/', $q)) {
+        return getBrandInfo($dbh, 'Nissan');
+    }
+    // ── Maruti ──
+    if (preg_match('/\bmaruti\b/', $q)) {
+        return getBrandInfo($dbh, 'Maruti');
+    }
+
+    // ── Default fallback ──
+    return "🤔 I'm not sure about that, but I can help with:\n\n• 🚗 **\"Show all cars\"** — see available cars\n• 💰 **\"Cheapest car\"** — budget options\n• ⛽ **\"Petrol vs CNG\"** — fuel comparison\n• 📅 **\"How to book\"** — booking guide\n• 👨‍👩‍👧 **\"Family car\"** — spacious vehicles\n• 🛣️ **\"Road trip car\"** — best for long drives\n• 📞 **\"Contact\"** — get support\n\nOr just type your question!";
+}
+
+function getBrandInfo($dbh, $brand) {
+    try {
+        $sql = "SELECT tblvehicles.vehiclestitle, tblvehicles.priceperday, tblvehicles.fueltype, tblvehicles.modelyear FROM tblvehicles JOIN tblbrands ON tblbrands.id = tblvehicles.vehiclesbrand WHERE LOWER(tblbrands.brandname) = LOWER(?) ORDER BY priceperday ASC";
+        $stmt = $dbh->prepare($sql);
+        $stmt->execute([$brand]);
+        $res = $stmt->fetchAll(PDO::FETCH_OBJ);
+        if ($res && count($res) > 0) {
+            $reply = "🚗 **{$brand} Cars at Rent Wheels:**\n\n";
+            foreach ($res as $car) {
+                $reply .= "• **{$car->vehiclestitle}** — ₹{$car->priceperday}/day | {$car->fueltype} | {$car->modelyear}\n";
+            }
+            $reply .= "\n[View Details & Book](car-listing.php)";
+            return $reply;
+        }
+    } catch(Exception $e) {}
+    return "We currently don't have {$brand} cars listed. Check our [Car Listing](car-listing.php) for all available vehicles!";
+}
+
+// ── Handle POST ───────────────────────────────────────────────────────
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['query'])) {
+    $query = trim($_POST['query']);
+    $response = getBotResponse($query, $dbh);
+    $_SESSION['chatHistory'][] = ['user' => $query, 'bot' => $response];
     header('Location: carbot.php');
     exit;
 }
@@ -101,226 +272,214 @@ $chatHistory = $_SESSION['chatHistory'];
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CarBot — Rent Wheels AI Assistant</title>
-    <link rel="stylesheet" href="assets/css/bootstrap.min.css">
-    <link rel="stylesheet" href="assets/css/font-awesome.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-
         body {
-            font-family: 'Inter', Arial, sans-serif;
+            font-family: 'Inter', sans-serif;
             background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
             min-height: 100vh;
-            color: white;
             display: flex;
             flex-direction: column;
         }
 
         /* Navbar */
-        .carbot-nav {
-            background: rgba(0,0,0,0.5);
+        .nav {
+            background: rgba(0,0,0,0.4);
             backdrop-filter: blur(10px);
-            padding: 15px 30px;
+            padding: 14px 30px;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
+            border-bottom: 1px solid rgba(255,255,255,0.08);
         }
-        .carbot-nav .brand { font-size: 1.4rem; font-weight: 700; color: #f5a623; }
-        .carbot-nav a { color: rgba(255,255,255,0.8); text-decoration: none; margin-left: 20px; font-size: 0.9rem; transition: color 0.2s; }
-        .carbot-nav a:hover { color: #f5a623; }
+        .nav .brand { font-size: 1.2rem; font-weight: 700; color: #f5a623; text-decoration: none; }
+        .nav-links a { color: rgba(255,255,255,0.75); text-decoration: none; margin-left: 22px; font-size: 0.88rem; transition: color 0.2s; }
+        .nav-links a:hover { color: #f5a623; }
 
-        /* Main layout */
-        .carbot-main {
+        /* Main */
+        .main {
             flex: 1;
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 30px 15px;
+            padding: 20px 15px;
         }
 
-        #chat-wrapper {
+        .chat-card {
             width: 100%;
-            max-width: 700px;
-            display: flex;
-            flex-direction: column;
-            gap: 0;
+            max-width: 720px;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 25px 60px rgba(0,0,0,0.5);
         }
 
         /* Header */
         .chat-header {
-            background: linear-gradient(135deg, #f5a623, #e8860c);
-            border-radius: 18px 18px 0 0;
-            padding: 20px 25px;
+            background: linear-gradient(135deg, #f5a623 0%, #e8860c 100%);
+            padding: 22px 28px;
             display: flex;
             align-items: center;
-            gap: 15px;
+            gap: 16px;
         }
-        .chat-header .bot-avatar {
-            width: 50px; height: 50px;
+        .bot-icon {
+            width: 54px; height: 54px;
             background: white;
             border-radius: 50%;
             display: flex; align-items: center; justify-content: center;
-            font-size: 1.5rem;
+            font-size: 1.6rem;
             box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            flex-shrink: 0;
         }
-        .chat-header h1 { font-size: 1.4rem; font-weight: 700; margin: 0; color: white; }
-        .chat-header p { font-size: 0.85rem; color: rgba(255,255,255,0.85); margin: 2px 0 0; }
-        .online-dot { width: 10px; height: 10px; background: #4ade80; border-radius: 50%; display: inline-block; margin-right: 5px; animation: pulse 2s infinite; }
-        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+        .chat-header h1 { font-size: 1.3rem; font-weight: 700; color: white; margin-bottom: 3px; }
+        .chat-header p { font-size: 0.82rem; color: rgba(255,255,255,0.88); }
+        .online { display: inline-block; width: 9px; height: 9px; background: #4ade80; border-radius: 50%; margin-right: 5px; animation: blink 2s infinite; }
+        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
 
-        /* Chat history */
-        #chat-history {
-            background: rgba(15, 12, 41, 0.85);
-            backdrop-filter: blur(10px);
+        /* Messages */
+        #chat-box {
+            background: #0f0c29;
             padding: 20px;
-            min-height: 380px;
-            max-height: 420px;
+            min-height: 400px;
+            max-height: 440px;
             overflow-y: auto;
             display: flex;
             flex-direction: column;
-            gap: 15px;
+            gap: 16px;
             scrollbar-width: thin;
-            scrollbar-color: rgba(245,166,35,0.4) transparent;
+            scrollbar-color: rgba(245,166,35,0.3) transparent;
         }
-        #chat-history::-webkit-scrollbar { width: 5px; }
-        #chat-history::-webkit-scrollbar-thumb { background: rgba(245,166,35,0.4); border-radius: 3px; }
+        #chat-box::-webkit-scrollbar { width: 5px; }
+        #chat-box::-webkit-scrollbar-thumb { background: rgba(245,166,35,0.3); border-radius: 3px; }
 
-        /* Welcome message */
-        .welcome-msg {
+        .welcome {
             text-align: center;
-            padding: 40px 20px;
-            color: rgba(255,255,255,0.5);
+            padding: 50px 20px;
+            color: rgba(255,255,255,0.4);
         }
-        .welcome-msg .icon { font-size: 3rem; margin-bottom: 10px; }
-        .welcome-msg p { font-size: 0.95rem; }
+        .welcome .big { font-size: 3rem; margin-bottom: 12px; }
+        .welcome p { font-size: 0.95rem; line-height: 1.6; }
 
-        /* Message bubbles */
-        .msg-row { display: flex; align-items: flex-end; gap: 10px; }
-        .msg-row.user { flex-direction: row-reverse; }
+        /* Rows */
+        .row { display: flex; align-items: flex-end; gap: 10px; }
+        .row.user-row { flex-direction: row-reverse; }
 
-        .avatar-sm {
-            width: 32px; height: 32px; border-radius: 50%;
+        .av {
+            width: 34px; height: 34px; border-radius: 50%;
             display: flex; align-items: center; justify-content: center;
-            font-size: 0.9rem; flex-shrink: 0;
+            font-size: 0.95rem; flex-shrink: 0;
         }
-        .avatar-sm.bot { background: linear-gradient(135deg, #f5a623, #e8860c); }
-        .avatar-sm.user { background: linear-gradient(135deg, #667eea, #764ba2); }
+        .av.bot { background: linear-gradient(135deg, #f5a623, #e8860c); }
+        .av.usr { background: linear-gradient(135deg, #667eea, #764ba2); }
 
         .bubble {
-            max-width: 75%;
+            max-width: 78%;
             padding: 12px 16px;
             border-radius: 18px;
-            font-size: 0.93rem;
-            line-height: 1.55;
-            animation: fadeIn 0.3s ease;
+            font-size: 0.9rem;
+            line-height: 1.6;
+            animation: pop 0.25s ease;
+            word-break: break-word;
         }
-        @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes pop { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
 
-        .bubble.bot {
-            background: rgba(255,255,255,0.1);
+        .bubble.bot-b {
+            background: rgba(255,255,255,0.08);
             border: 1px solid rgba(255,255,255,0.1);
-            border-bottom-left-radius: 4px;
             color: rgba(255,255,255,0.92);
+            border-bottom-left-radius: 4px;
         }
-        .bubble.user {
+        .bubble.usr-b {
             background: linear-gradient(135deg, #f5a623, #e8860c);
-            border-bottom-right-radius: 4px;
             color: white;
+            border-bottom-right-radius: 4px;
         }
+        .bubble a { color: #f5a623; }
+        .bubble.bot-b a { color: #f5a623; }
 
-        /* Input area */
-        .chat-input-area {
-            background: rgba(15, 12, 41, 0.95);
-            border-top: 1px solid rgba(255,255,255,0.08);
-            border-radius: 0 0 18px 18px;
+        /* Input */
+        .chat-input {
+            background: #16122f;
+            border-top: 1px solid rgba(255,255,255,0.07);
             padding: 18px 20px;
         }
         .input-row {
             display: flex;
             gap: 10px;
-            align-items: flex-end;
+            align-items: center;
         }
         .input-row textarea {
             flex: 1;
-            background: rgba(255,255,255,0.08);
-            border: 1px solid rgba(255,255,255,0.15);
-            border-radius: 12px;
+            background: rgba(255,255,255,0.07);
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 14px;
             color: white;
-            padding: 12px 15px;
-            font-size: 0.93rem;
+            padding: 12px 16px;
+            font-size: 0.92rem;
             resize: none;
-            height: 50px;
-            transition: border-color 0.2s, height 0.2s;
+            height: 48px;
             font-family: 'Inter', sans-serif;
+            transition: border-color 0.2s;
+            line-height: 1.4;
         }
-        .input-row textarea:focus {
-            outline: none;
-            border-color: #f5a623;
-            background: rgba(255,255,255,0.12);
-        }
-        .input-row textarea::placeholder { color: rgba(255,255,255,0.35); }
-
+        .input-row textarea:focus { outline: none; border-color: #f5a623; }
+        .input-row textarea::placeholder { color: rgba(255,255,255,0.3); }
         .btn-send {
             background: linear-gradient(135deg, #f5a623, #e8860c);
             border: none;
-            border-radius: 12px;
+            border-radius: 14px;
+            width: 48px; height: 48px;
             color: white;
-            width: 50px; height: 50px;
             font-size: 1.1rem;
             cursor: pointer;
             transition: transform 0.2s, opacity 0.2s;
             flex-shrink: 0;
             display: flex; align-items: center; justify-content: center;
         }
-        .btn-send:hover { opacity: 0.9; transform: scale(1.05); }
+        .btn-send:hover { opacity: 0.88; transform: scale(1.05); }
         .btn-send:active { transform: scale(0.97); }
 
-        .chat-footer {
+        .input-meta {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-top: 10px;
         }
-        .chat-footer small { color: rgba(255,255,255,0.3); font-size: 0.78rem; }
+        .input-meta small { color: rgba(255,255,255,0.25); font-size: 0.75rem; }
         .btn-clear {
             background: none;
-            border: 1px solid rgba(255,255,255,0.2);
-            color: rgba(255,255,255,0.5);
+            border: 1px solid rgba(255,255,255,0.15);
+            color: rgba(255,255,255,0.4);
             border-radius: 8px;
             padding: 4px 12px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: 'Inter', sans-serif;
+        }
+        .btn-clear:hover { border-color: #e8490d; color: #e8490d; }
+
+        /* Quick chips */
+        .chips { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 13px; }
+        .chip {
+            background: rgba(245,166,35,0.1);
+            border: 1px solid rgba(245,166,35,0.25);
+            color: rgba(255,255,255,0.75);
+            border-radius: 20px;
+            padding: 5px 13px;
             font-size: 0.78rem;
             cursor: pointer;
             transition: all 0.2s;
+            font-family: 'Inter', sans-serif;
         }
-        .btn-clear:hover { border-color: #f5a623; color: #f5a623; }
-
-        /* Suggestions */
-        .suggestions {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            margin-top: 12px;
-        }
-        .suggestion-btn {
-            background: rgba(245,166,35,0.12);
-            border: 1px solid rgba(245,166,35,0.3);
-            color: rgba(255,255,255,0.8);
-            border-radius: 20px;
-            padding: 5px 14px;
-            font-size: 0.8rem;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        .suggestion-btn:hover { background: rgba(245,166,35,0.25); color: white; }
+        .chip:hover { background: rgba(245,166,35,0.22); color: white; border-color: #f5a623; }
     </style>
 </head>
 <body>
 
-<!-- Navbar -->
-<nav class="carbot-nav">
-    <span class="brand">🚗 Rent Wheels</span>
-    <div>
+<nav class="nav">
+    <a class="brand" href="index.php">🚗 Rent Wheels</a>
+    <div class="nav-links">
         <a href="index.php">Home</a>
         <a href="car-listing.php">Cars</a>
         <a href="page.php?type=aboutus">About</a>
@@ -328,88 +487,93 @@ $chatHistory = $_SESSION['chatHistory'];
     </div>
 </nav>
 
-<div class="carbot-main">
-    <div id="chat-wrapper">
+<div class="main">
+    <div class="chat-card">
 
-        <!-- Chat Header -->
         <div class="chat-header">
-            <div class="bot-avatar">🤖</div>
+            <div class="bot-icon">🤖</div>
             <div>
                 <h1>CarBot</h1>
-                <p><span class="online-dot"></span>Your AI Car Rental Assistant</p>
+                <p><span class="online"></span>Your AI Car Rental Assistant — Always Online</p>
             </div>
         </div>
 
-        <!-- Chat History -->
-        <div id="chat-history">
+        <div id="chat-box">
             <?php if (empty($chatHistory)): ?>
-            <div class="welcome-msg">
-                <div class="icon">🚘</div>
-                <p>Hi! I'm CarBot. Ask me anything about cars, rentals, fuel types, or pricing!</p>
+            <div class="welcome">
+                <div class="big">🚘</div>
+                <p>Hi! I'm <strong>CarBot</strong> — your smart car rental assistant.<br>
+                Ask me about cars, pricing, fuel types, or how to book!</p>
             </div>
             <?php else: ?>
                 <?php foreach ($chatHistory as $chat): ?>
-                <div class="msg-row user">
-                    <div class="bubble user"><?php echo nl2br(htmlspecialchars($chat['user'])); ?></div>
-                    <div class="avatar-sm user">👤</div>
+                <div class="row user-row">
+                    <div class="bubble usr-b"><?php echo nl2br(htmlspecialchars($chat['user'])); ?></div>
+                    <div class="av usr">👤</div>
                 </div>
-                <div class="msg-row">
-                    <div class="avatar-sm bot">🤖</div>
-                    <div class="bubble bot"><?php echo nl2br(htmlspecialchars($chat['bot'])); ?></div>
+                <div class="row">
+                    <div class="av bot">🤖</div>
+                    <div class="bubble bot-b"><?php
+                        // Convert markdown-like **bold** and links
+                        $text = htmlspecialchars($chat['bot']);
+                        $text = preg_replace('/\*\*(.+?)\*\*/', '<strong>$1</strong>', $text);
+                        $text = preg_replace('/\[([^\]]+)\]\(([^\)]+)\)/', '<a href="$2">$1</a>', $text);
+                        echo nl2br($text);
+                    ?></div>
                 </div>
                 <?php endforeach; ?>
             <?php endif; ?>
         </div>
 
-        <!-- Input Area -->
-        <div class="chat-input-area">
+        <div class="chat-input">
             <form method="post" id="chatForm">
                 <div class="input-row">
-                    <textarea name="query" id="queryInput" placeholder="Ask about cars, pricing, fuel types..." required></textarea>
+                    <textarea name="query" id="msgInput" placeholder="Ask about cars, pricing, fuel types..." required></textarea>
                     <button type="submit" class="btn-send" title="Send">➤</button>
                 </div>
-                <div class="chat-footer">
-                    <small>Powered by GPT-4o</small>
-                    <button type="submit" name="clear_chat" class="btn-clear" form="clearForm">🗑 Clear chat</button>
+                <div class="input-meta">
+                    <small>🚗 CarBot knows your fleet in real-time</small>
+                    <button type="submit" name="clear_chat" class="btn-clear" form="clearForm">🗑 Clear</button>
                 </div>
             </form>
             <form id="clearForm" method="post">
                 <input type="hidden" name="clear_chat" value="1">
             </form>
 
-            <!-- Quick suggestions -->
             <?php if (empty($chatHistory)): ?>
-            <div class="suggestions">
-                <button class="suggestion-btn" onclick="fillQuery(this)">Best cars under ₹1500/day</button>
-                <button class="suggestion-btn" onclick="fillQuery(this)">Difference between petrol and CNG?</button>
-                <button class="suggestion-btn" onclick="fillQuery(this)">Which car has best mileage?</button>
-                <button class="suggestion-btn" onclick="fillQuery(this)">SUV vs Sedan for road trips</button>
+            <div class="chips">
+                <button class="chip" onclick="ask(this)">Show all cars</button>
+                <button class="chip" onclick="ask(this)">Cheapest car</button>
+                <button class="chip" onclick="ask(this)">Petrol vs CNG</button>
+                <button class="chip" onclick="ask(this)">Family car</button>
+                <button class="chip" onclick="ask(this)">How to book</button>
+                <button class="chip" onclick="ask(this)">Road trip car</button>
+                <button class="chip" onclick="ask(this)">BMW cars</button>
+                <button class="chip" onclick="ask(this)">Luxury cars</button>
             </div>
             <?php endif; ?>
         </div>
-
     </div>
 </div>
 
 <script>
-// Auto-scroll chat to bottom
-const hist = document.getElementById('chat-history');
-if (hist) hist.scrollTop = hist.scrollHeight;
+    // Scroll to bottom
+    const box = document.getElementById('chat-box');
+    if (box) box.scrollTop = box.scrollHeight;
 
-// Fill query from suggestion button
-function fillQuery(btn) {
-    document.getElementById('queryInput').value = btn.textContent;
-    document.getElementById('queryInput').focus();
-}
-
-// Send on Enter (Shift+Enter for newline)
-document.getElementById('queryInput').addEventListener('keydown', function(e) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
+    // Chip click
+    function ask(btn) {
+        document.getElementById('msgInput').value = btn.textContent;
         document.getElementById('chatForm').submit();
     }
-});
-</script>
 
+    // Enter to send
+    document.getElementById('msgInput').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            document.getElementById('chatForm').submit();
+        }
+    });
+</script>
 </body>
 </html>
