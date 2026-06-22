@@ -74,7 +74,7 @@ else{
 
 <?php 
 $useremail=$_SESSION['login'];
-$sql = "SELECT * from tblusers where EmailId=:useremail";
+$sql = "SELECT * from tblusers where emailid=:useremail";
 $query = $dbh -> prepare($sql);
 $query -> bindParam(':useremail',$useremail, PDO::PARAM_STR);
 $query->execute();
@@ -91,9 +91,9 @@ foreach($results as $result)
       </div>
 
       <div class="dealer_info">
-        <h5><?php echo "Welcome " ,  htmlentities($result->FullName);?></h5>
+        <h5><?php echo "Welcome " ,  htmlentities($result->fullname);?></h5>
         <p>
-          <?php echo htmlentities($result->Country); }}?></p>
+          <?php echo htmlentities($result->country); }}?></p>
       </div>
     </div>
   
@@ -110,7 +110,7 @@ foreach($results as $result)
             <ul class="vehicle_listing">
 <?php 
 $useremail=$_SESSION['login'];
-$sql = "SELECT * from tbltestimonial where UserEmail=:useremail";
+$sql = "SELECT * from tbltestimonial where useremail=:useremail";
 $query = $dbh -> prepare($sql);
 $query -> bindParam(':useremail',$useremail, PDO::PARAM_STR);
 $query->execute();
@@ -124,8 +124,8 @@ foreach($results as $result)
               <li>
            
                 <div>
-                 <p><?php echo htmlentities($result->Testimonial);?> </p>
-                   <p><b>Posting Date:</b><?php echo htmlentities($result->PostingDate);?> </p>
+                 <p><?php echo htmlentities($result->testimonial);?> </p>
+                   <p><b>Posting Date:</b><?php echo htmlentities($result->postingdate);?> </p>
                 </div>
                 <?php if($result->status==1){ ?>
                  <div class="vehicle_status"> <a class="btn outline btn-xs active-btn">Active</a>

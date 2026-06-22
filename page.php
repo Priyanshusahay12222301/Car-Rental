@@ -51,7 +51,7 @@ include('includes/config.php');
 <?php include('includes/header.php');?>
                       <?php 
 $pagetype=$_GET['type'];
-$sql = "SELECT type,detail,PageName from tblpages where type=:pagetype";
+$sql = "SELECT type,detail,pagename from tblpages where type=:pagetype";
 $query = $dbh -> prepare($sql);
 $query->bindParam(':pagetype',$pagetype,PDO::PARAM_STR);
 $query->execute();
@@ -65,11 +65,11 @@ foreach($results as $result)
   <div class="container">
     <div class="page-header_wrap">
       <div class="page-heading">
-        <h1><?php   echo htmlentities($result->PageName); ?></h1>
+        <h1><?php   echo htmlentities($result->pagename); ?></h1>
       </div>
       <ul class="coustom-breadcrumb">
         <li><a href="#">Home</a></li>
-        <li><?php   echo htmlentities($result->PageName); ?></li>
+        <li><?php   echo htmlentities($result->pagename); ?></li>
       </ul>
     </div>
   </div>
@@ -81,7 +81,7 @@ foreach($results as $result)
     <div class="section-header text-center">
 
 
-      <h2><?php   echo htmlentities($result->PageName); ?></h2>
+      <h2><?php   echo htmlentities($result->pagename); ?></h2>
       <p><?php  echo $result->detail; ?> </p>
     </div>
    <?php } }?>

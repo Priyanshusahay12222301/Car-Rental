@@ -16,7 +16,7 @@ $adress=$_POST['address'];
 $city=$_POST['city'];
 $country=$_POST['country'];
 $email=$_SESSION['login'];
-$sql="update tblusers set FullName=:name,ContactNo=:mobileno,dob=:dob,Address=:adress,City=:city,Country=:country where EmailId=:email";
+$sql="update tblusers set fullname=:name,contactno=:mobileno,dob=:dob,address=:adress,city=:city,country=:country where emailid=:email";
 $query = $dbh->prepare($sql);
 $query->bindParam(':name',$name,PDO::PARAM_STR);
 $query->bindParam(':mobileno',$mobileno,PDO::PARAM_STR);
@@ -115,7 +115,7 @@ $msg="Profile Updated Successfully";
 
 <?php 
 $useremail=$_SESSION['login'];
-$sql = "SELECT * from tblusers where EmailId=:useremail";
+$sql = "SELECT * from tblusers where emailid=:useremail";
 $query = $dbh -> prepare($sql);
 $query -> bindParam(':useremail',$useremail, PDO::PARAM_STR);
 $query->execute();
@@ -132,9 +132,9 @@ foreach($results as $result)
       </div>
 
       <div class="dealer_info">
-        <h5><?php echo "Welcome " , htmlentities($result->FullName);?></h5>
+        <h5><?php echo "Welcome " , htmlentities($result->fullname);?></h5>
         <p>
-          <?php echo htmlentities($result->Country);?></p>
+          <?php echo htmlentities($result->country);?></p>
       </div>
     </div>
   
@@ -149,25 +149,25 @@ foreach($results as $result)
           <form  method="post">
            <div class="form-group">
               <label class="control-label">Reg Date -</label>
-             <?php echo htmlentities($result->RegDate);?>
+             <?php echo htmlentities($result->regdate);?>
             </div>
-             <?php if($result->UpdationDate!=""){?>
+             <?php if($result->updationdate!=""){?>
             <div class="form-group">
               <label class="control-label">Last Update at  -</label>
-             <?php echo htmlentities($result->UpdationDate);?>
+             <?php echo htmlentities($result->updationdate);?>
             </div>
             <?php } ?>
             <div class="form-group">
               <label class="control-label">Full Name</label>
-              <input class="form-control white_bg" name="fullname" value="<?php echo "Welcome " ,  htmlentities($result->FullName);?>" id="fullname" type="text"  required>
+              <input class="form-control white_bg" name="fullname" value="<?php echo "Welcome " ,  htmlentities($result->fullname);?>" id="fullname" type="text"  required>
             </div>
             <div class="form-group">
               <label class="control-label">Email Address</label>
-              <input class="form-control white_bg" value="<?php echo htmlentities($result->EmailId);?>" name="emailid" id="email" type="email" required readonly>
+              <input class="form-control white_bg" value="<?php echo htmlentities($result->emailid);?>" name="emailid" id="email" type="email" required readonly>
             </div>
             <div class="form-group">
               <label class="control-label">Phone Number</label>
-              <input class="form-control white_bg" name="mobilenumber" value="<?php echo htmlentities($result->ContactNo);?>" id="phone-number" type="text" required>
+              <input class="form-control white_bg" name="mobilenumber" value="<?php echo htmlentities($result->contactno);?>" id="phone-number" type="text" required>
             </div>
             <div class="form-group">
               <label class="control-label">Date of Birth&nbsp;(dd/mm/yyyy)</label>
@@ -175,15 +175,15 @@ foreach($results as $result)
             </div>
             <div class="form-group">
               <label class="control-label">Your Address</label>
-              <textarea class="form-control white_bg" name="address" rows="4" ><?php echo htmlentities($result->Address);?></textarea>
+              <textarea class="form-control white_bg" name="address" rows="4" ><?php echo htmlentities($result->address);?></textarea>
             </div>
             <div class="form-group">
               <label class="control-label">Country</label>
-              <input class="form-control white_bg"  id="country" name="country" value="<?php echo htmlentities($result->City);?>" type="text">
+              <input class="form-control white_bg"  id="country" name="country" value="<?php echo htmlentities($result->city);?>" type="text">
             </div>
             <div class="form-group">
               <label class="control-label">City</label>
-              <input class="form-control white_bg" id="city" name="city" value="<?php echo htmlentities($result->City);?>" type="text">
+              <input class="form-control white_bg" id="city" name="city" value="<?php echo htmlentities($result->city);?>" type="text">
             </div>
             <?php }} ?>
            

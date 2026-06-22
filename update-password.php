@@ -13,7 +13,7 @@ if(isset($_POST['update']))
 $password=md5($_POST['password']);
 $newpassword=md5($_POST['newpassword']);
 $email=$_SESSION['login'];
-  $sql ="SELECT Password FROM tblusers WHERE EmailId=:email and Password=:password";
+  $sql ="SELECT password FROM tblusers WHERE emailid=:email and password=:password";
 $query= $dbh -> prepare($sql);
 $query-> bindParam(':email', $email, PDO::PARAM_STR);
 $query-> bindParam(':password', $password, PDO::PARAM_STR);
@@ -21,7 +21,7 @@ $query-> execute();
 $results = $query -> fetchAll(PDO::FETCH_OBJ);
 if($query -> rowCount() > 0)
 {
-$con="update tblusers set Password=:newpassword where EmailId=:email";
+$con="update tblusers set password=:newpassword where emailid=:email";
 $chngpwd1 = $dbh->prepare($con);
 $chngpwd1-> bindParam(':email', $email, PDO::PARAM_STR);
 $chngpwd1-> bindParam(':newpassword', $newpassword, PDO::PARAM_STR);
@@ -132,7 +132,7 @@ return true;
 
 <?php 
 $useremail=$_SESSION['login'];
-$sql = "SELECT * from tblusers where EmailId=:useremail";
+$sql = "SELECT * from tblusers where emailid=:useremail";
 $query = $dbh -> prepare($sql);
 $query -> bindParam(':useremail',$useremail, PDO::PARAM_STR);
 $query->execute();
@@ -149,9 +149,9 @@ foreach($results as $result)
       </div>
 
       <div class="dealer_info">
-        <h5><?php echo "Welcome " ,  htmlentities($result->FullName);?></h5>
+        <h5><?php echo "Welcome " ,  htmlentities($result->fullname);?></h5>
         <p>
-          <?php echo htmlentities($result->Country);}}?></p>
+          <?php echo htmlentities($result->country);}}?></p>
       </div>
     </div>
     <div class="row">
